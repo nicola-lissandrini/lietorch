@@ -60,8 +60,9 @@ struct traits<AngularVelocity>
 
 }
 
-namespace quaternion_ops
+namespace ops
 {
+namespace quaternion {
 using Tensor = torch::Tensor;
 
 // Quaternion operations
@@ -69,6 +70,7 @@ Tensor inverse (const Tensor &q);
 Tensor action (const Tensor &q, const Tensor &v);
 Tensor composition (const Tensor &q1, const Tensor &q2);
 Tensor conjugate (const Tensor &q);
+Tensor skew (const Tensor &v);
 Tensor log (const Tensor &q);
 Tensor actionJacobianR4 (const Tensor &q, const Tensor &v);
 Tensor actionJacobian (const Tensor &q, const Tensor &v);
@@ -82,6 +84,7 @@ Tensor x (const Tensor &q);
 Tensor y (const Tensor &q);
 Tensor z (const Tensor &q);
 Tensor w (const Tensor &q);
+}
 
 }
 
@@ -123,6 +126,7 @@ public:
 							const Vector &v,
 							const OpFcn &op = OpIdentity,
 							const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
+	Vector getJacobian (const Vector &v) const;
 
 	torch::Tensor x () const;
 	torch::Tensor y () const;

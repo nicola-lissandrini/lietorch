@@ -9,7 +9,7 @@ using namespace std;
  * Quaternion operations on tensors
  * **/
 
-namespace lietorch::quaternion_ops {
+namespace lietorch::ops::quaternion {
 
 static const Tensor jacobianMultiplier = 2*torch::tensor({{{{ 1, 0, 0}, { 0,-1, 0}, { 0, 0,-1}},
 											{{ 0, 1, 0}, { 1, 0, 0}, { 0, 0, 0}},
@@ -35,9 +35,15 @@ static const Tensor compositionMultiplier = torch::tensor({{{ 0, 0, 0, 1}, { 0, 
 
 static const Tensor conjugateMultiplier = torch::tensor({{-1, 0, 0, 0}, { 0,-1, 0, 0}, { 0, 0,-1, 0}, { 0, 0, 0, 1}}, kFloat);
 
-static const Tensor skewMultiplier = torch::tensor({{{ 0, 0, 0}, { 0, 0,-1}, { 0, 1, 0}},
-										  {{ 0, 0, 1}, { 0, 0, 0}, {-1, 0, 0}},
-										  {{ 0,-1, 0}, { 1, 0, 0}, { 0, 0, 0}}}, kFloat);
+static const Tensor skewMultiplier = torch::tensor({{{ 0, 0, 0},
+										   { 0, 0,-1},
+										   { 0, 1, 0}},
+										  {{ 0, 0, 1},
+										    { 0, 0, 0},
+										    {-1, 0, 0}},
+										  {{ 0,-1, 0},
+										    { 1, 0, 0},
+										    { 0, 0, 0}}}, kFloat);
 
 static const Tensor rotationMultiplier = torch::tensor({{{ 1, 0, 0, 0}, { 0,-1, 0, 0}, { 0, 0,-1, 0}, { 0, 0, 0, 1}},
 											 {{ 0, 2, 0, 0}, { 0, 0, 0, 0}, { 0, 0, 0, 0}, { 0, 0,-2, 0}},
@@ -72,7 +78,7 @@ Tensor imag (const Tensor &q) {
 
 Tensor action (const Tensor &q, const Tensor &v)
 {
-	torch::Tensor imagPart = quaternion_ops::imag (q);
+	torch::Tensor imagPart = ops::quaternion::imag (q);
 
 	if (v.sizes().size() == 1)
 		v.unsqueeze_(0);
@@ -88,6 +94,10 @@ Tensor composition (const Tensor &q1, const Tensor &q2) {
 
 Tensor conjugate (const Tensor &q) {
 	return conjugateMultiplier.matmul(q.unsqueeze(1)).squeeze();
+}
+
+Tensor skew (const Tensor &v) {
+	return (skewMultiplier * v.unsqueeze (1).unsqueeze (1)).sum(0);
 }
 
 Tensor actionJacobian (const Tensor &q, const Tensor &v) {
@@ -114,23 +124,29 @@ Tensor normalize (const Tensor &q) {
 }
 
 Tensor distanceRiemann (const Tensor &q1, const Tensor &q2) {
-	return quaternion_ops::log(composition (quaternion_ops::inverse(q1), q2)).norm ();
+	return ops::quaternion::log(composition (ops::quaternion::inverse(q1), q2)).norm ();
 }
 
 Tensor inverse(const Tensor &q) {
-	return quaternion_ops::conjugate(q);
+	return ops::quaternion::conjugate(q);
 }
 
 Tensor log (const Tensor &q) {
-	Tensor imagPart = quaternion_ops::imag(q);
+	Tensor imagPart = ops::quaternion::imag(q);
 	Tensor imagPartNorm = imagPart.norm();
-	return 2 * imagPart / imagPartNorm * torch::acos(w(q));
+
+
+	if (imagPartNorm.item().toFloat() < 1e-5)
+		return imagPart * 0;
+	else
+		return 2 * imagPart / imagPartNorm * torch::acos(w(q).clamp (-1, 1));
 }
 
 Tensor exp (const Tensor &t) {
 	Tensor theta = t.norm(2,0);
 
-	if (theta.item().toFloat() < 1e-10)
+
+	if (theta.item().toFloat() < 1e-5)
 		return torch::cat ({0 * t, theta.cos().unsqueeze(0) });
 	else
 		return torch::cat ({t / theta * (theta / 2).sin(), (theta / 2).cos().unsqueeze(0)});
@@ -148,56 +164,62 @@ Quaternion::Quaternion (float x, float y, float z, float w):
 {}
 
 Quaternion Quaternion::inverse () const {
-	return quaternion_ops::inverse(coeffs);
+	return ops::quaternion::inverse(coeffs);
 }
 
 AngularVelocity Quaternion::log() const {
-	return quaternion_ops::log(coeffs);
+	return ops::quaternion::log(coeffs);
 }
 
 Quaternion Quaternion::compose(const Quaternion &other) const {
-	return quaternion_ops::composition(coeffs, other.coeffs);
+	return ops::quaternion::composition(coeffs, other.coeffs);
 }
 
 Quaternion::Vector Quaternion::act(const Vector &v) const {
-	return quaternion_ops::action(coeffs, v);
+	return ops::quaternion::action(coeffs, v);
 }
 
 Quaternion::DataType Quaternion::dist (const Quaternion &other, const DataType &weights) const {
-	return quaternion_ops::distanceRiemann (coeffs, other.coeffs);
+	return ops::quaternion::distanceRiemann (coeffs, other.coeffs);
 }
 
 AngularVelocity Quaternion::differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<Tensor &> &jacobian) const
 {
-	Tensor actionJacobian = quaternion_ops::actionJacobian (coeffs, v);
-	Tensor gradientTensor = outerGradient.unsqueeze(1).matmul (actionJacobian).squeeze();
+	Tensor actionJacobian = ops::quaternion::actionJacobian (coeffs, v);
+	COUTNS(outerGradient);
+	Tensor gradientTensor = actionJacobian.transpose (1,2).matmul (outerGradient.unsqueeze(2)).squeeze();
+	COUTNS(gradientTensor);
 	if (jacobian)
 		*jacobian = gradientTensor;
 	return AngularVelocity (op (gradientTensor));
 }
 
+Quaternion::Vector Quaternion::getJacobian (const Vector &v) const {
+	return ops::quaternion::actionJacobian (coeffs, v);
+}
+
 Quaternion Quaternion::conj() const {
-	return quaternion_ops::conjugate(coeffs);
+	return ops::quaternion::conjugate(coeffs);
 }
 
 torch::Tensor Quaternion::x() const {
-	return quaternion_ops::x (coeffs);
+	return ops::quaternion::x (coeffs);
 }
 
 torch::Tensor Quaternion::y() const {
-	return quaternion_ops::y (coeffs);
+	return ops::quaternion::y (coeffs);
 }
 
 torch::Tensor Quaternion::z() const {
-	return quaternion_ops::z (coeffs);
+	return ops::quaternion::z (coeffs);
 }
 
 torch::Tensor Quaternion::w() const {
-	return quaternion_ops::w (coeffs);
+	return ops::quaternion::w (coeffs);
 }
 
 Quaternion AngularVelocity::exp() const {
-	return quaternion_ops::exp(coeffs);
+	return ops::quaternion::exp(coeffs);
 }
 
 AngularVelocity::DataType AngularVelocity::norm() const {
@@ -256,7 +278,7 @@ QuaternionR4 QuaternionR4::compose(const QuaternionR4 &o) const {
 
 QuaternionR4::Vector QuaternionR4::act(const Vector &v) const {
 	// Quaternion action
-	return quaternion_ops::action(coeffs, v);
+	return ops::quaternion::action(coeffs, v);
 }
 
 QuaternionR4::DataType QuaternionR4::dist(const QuaternionR4 &other, const DataType &weights) const {
@@ -268,7 +290,7 @@ QuaternionR4::DataType QuaternionR4::dist(const QuaternionR4 &other, const DataT
 
 QuaternionR4Velocity QuaternionR4::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const
 {
-	Tensor actionJacobian = quaternion_ops::actionJacobianR4 (coeffs, v);
+	Tensor actionJacobian = ops::quaternion::actionJacobianR4 (coeffs, v);
 	Tensor gradientTensor = outerGradient.unsqueeze (1).matmul (actionJacobian).squeeze ();
 	if (jacobian)
 		*jacobian = gradientTensor;
@@ -276,26 +298,26 @@ QuaternionR4Velocity QuaternionR4::differentiate (const Vector &outerGradient, c
 }
 
 void QuaternionR4::normalize_() {
-	coeffs = quaternion_ops::normalize (coeffs);
+	coeffs = ops::quaternion::normalize (coeffs);
 }
 QuaternionR4 QuaternionR4::normalized () {
-	return QuaternionR4 (quaternion_ops::normalize (coeffs));
+	return QuaternionR4 (ops::quaternion::normalize (coeffs));
 }
 
 torch::Tensor QuaternionR4::x() const {
-	return quaternion_ops::x (coeffs);
+	return ops::quaternion::x (coeffs);
 }
 
 torch::Tensor QuaternionR4::y() const {
-	return quaternion_ops::y (coeffs);
+	return ops::quaternion::y (coeffs);
 }
 
 torch::Tensor QuaternionR4::z() const {
-	return quaternion_ops::z (coeffs);
+	return ops::quaternion::z (coeffs);
 }
 
 torch::Tensor QuaternionR4::w() const {
-	return quaternion_ops::w (coeffs);
+	return ops::quaternion::w (coeffs);
 }
 
 QuaternionR4Velocity::LieAlg QuaternionR4Velocity::generator (int i) const {

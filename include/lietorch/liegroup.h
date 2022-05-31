@@ -108,6 +108,12 @@ std::ostream &operator << (std::ostream &os, const LieGroup<Derived> &l) {
 	return os;
 }
 
+template<class Derived>
+std::string toString (const LieGroup<Derived> &l) {
+	std::stringstream ss;
+	return (ss << l).str ();
+}
+
 // Copy
 template<typename Derived>
 LieGroup<Derived>::LieGroup() {

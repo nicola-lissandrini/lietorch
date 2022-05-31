@@ -100,7 +100,7 @@ using Velocity3 = VelocityRn<3>;
 
 using Pose3R4 = PoseBase<Position3, QuaternionR4>;
 using Pose = PoseBase<Position3, Quaternion>;
-using Twist3R4 = TwistBase<Velocity3, QuaternionR4Velocity>;
+using Twist = TwistBase<Velocity3, AngularVelocity>;
 
 using Position = Position3;
 using Velocity = Velocity3;
@@ -111,6 +111,25 @@ using Twist3R4 = TwistBase<Velocity3, QuaternionR4Velocity>;
 
 using Position = Position3;
 using Velocity = Velocity3;
+
+
+template<class ToGroup>
+ToGroup pose_cast (const Pose &pose);
+
+template<>
+inline Pose pose_cast<Pose> (const Pose &pose) {
+	return pose;
+}
+
+template<>
+inline Position pose_cast<Position> (const Pose &pose) {
+	return pose.translation ();
+}
+
+template<>
+inline Quaternion pose_cast<Quaternion> (const Pose &pose) {
+	return pose.rotation ();
+}
 
 
 

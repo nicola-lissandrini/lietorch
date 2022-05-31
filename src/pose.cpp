@@ -15,6 +15,39 @@ class PoseBase<Position3, Quaternion>;
 template
 class TwistBase<Position3, Quaternion>;
 
+namespace lietorch::ops::pose {
+
+static const Tensor eye3 = torch::eye (3);
+
+Tensor expCoupling (const Tensor &theta) {
+	Tensor skewRotation = ops::quaternion::skew (theta).squeeze ();
+	Tensor angle = theta.norm ();
+
+	if (angle.item().toFloat () < 1e-5)
+		return eye3;
+	else
+		return eye3 + (1 - angle.cos ()) / (angle * angle) * skewRotation + (angle - angle.sin ()) / (angle.pow (3)) * skewRotation.mm (skewRotation);
+}
+
+Tensor expCouplingInverse (const Tensor &theta) {
+	Tensor skewRotation = ops::quaternion::skew (theta).squeeze ();
+	Tensor angle  = theta.norm ();
+
+	if (angle.item().toFloat () < 1e-5)
+		return eye3;
+	else
+		return eye3 - 0.5 * skewRotation + (1/(angle *angle) - (1 + angle.cos ())/(2 * angle * angle.sin ())) * skewRotation.mm (skewRotation);
+}
+
+/*
+Tensor rightJacobianInv (const Tensor &q) {
+	Tensor rotationLog = ops::quaternion::log (q);
+	Tensor skewRotationLog = ops::quaternion::skew (rotationLog);
+	return torch::eye (3, kFloat) + 0.5 * skewRotationLog + (1 / ());
+}
+*/
+}
+
 template<class Translation, class Rotation>
 Translation PoseBase<Translation, Rotation>::translation () const {
 	const int tDim = Translation::Dim;
@@ -49,7 +82,9 @@ PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::inverse () cons
 
 template<class Translation, class Rotation>
 typename PoseBase<Translation,Rotation>::Tangent PoseBase<Translation,Rotation>::log () const {
-	return Tangent (translation().log(), rotation().log());
+	Tensor rotationLog = rotation().log().coeffs;
+
+	return Tangent (ops::pose::expCouplingInverse (rotationLog).matmul (translation().coeffs), rotationLog);
 }
 
 // Composition is different according to each specialization
@@ -67,7 +102,7 @@ PoseBase<Position3, Quaternion> PoseBase<Position3, Quaternion>::compose (const 
 template<class Translation, class Rotation>
 typename PoseBase<Translation,Rotation>::DataType
 PoseBase<Translation,Rotation>::dist(const PoseBase &other, const DataType &weights) const {
-	assert ((weights.dim() == 1 && weights.size(0) == 2) && "Rn must be weighted by a 1d vector of length 2");
+	assert ((weights.dim() == 1 && weights.size(0) == 2) && "A pose must be weighted by a 1d vector of length 2");
 
 	return translation().dist(other.translation(), weights[0].unsqueeze(0)) + rotation().dist(other.rotation(), weights[1].unsqueeze(0));
 }
@@ -81,7 +116,7 @@ PoseBase<Translation, Rotation>:: PoseBase::act (const Vector &v) const {
 template<class Translation, class Rotation>
 typename PoseBase<Translation, Rotation>::Tangent
 PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
-	return Tangent (translation().differentiate (outerGradient, v, op),
+	return Tangent (rotation().act (translation().differentiate (outerGradient, v, op).coeffs),
 				 rotation().differentiate (outerGradient, v, op));
 }
 
@@ -107,7 +142,7 @@ TwistBase<Translation, Rotation>::angular () const {
 template<class Translation, class Rotation>
 typename TwistBase<Translation, Rotation>::LieGroup
 TwistBase<Translation, Rotation>::exp () const {
-	return LieGroup (linear().exp(), angular().exp ());
+	return LieGroup (ops::pose::expCoupling (angular().coeffs).matmul (linear().coeffs), angular().exp ().coeffs);
 }
 
 template<class Translation, class Rotation>

@@ -107,7 +107,6 @@ Rn<_N>  Rn<_N>::compose (const Rn<_N> &other) const {
 template<int _N>
 typename Rn<_N>::DataType Rn<_N>::dist(const Rn<_N> &other, const DataType &weights) const {
 	assert ((weights.dim() == 1 && weights.size(0) == 1) && "Rn must be weighted by a 1d scalar");
-
 	return (coeffs - other.coeffs).norm();
 }
 
