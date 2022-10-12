@@ -17,14 +17,16 @@ include_directories (
 
 add_library (lietorch SHARED
 	src/quaternion.cpp
-	src/pose.cpp)
+	src/pose.cpp
+	src/unit_complex.cpp
+)
 
 set_target_properties (
 	lietorch PROPERTIES
 	VERSION 0.9.1
 	SOVERSION 0.9.1 )
 
-add_executable(test src/test.cpp)
+add_executable(test src/test3.cpp)
 target_link_libraries (test ${TORCH_LIBRARIES} lietorch)
 
 # Install

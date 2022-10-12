@@ -4,6 +4,8 @@ using namespace lietorch;
 using namespace torch;
 using namespace std;
 
+namespace lietorch {
+
 // Instantiate implemented templates
 template
 class PoseBase<Position3, QuaternionR4>;
@@ -15,7 +17,12 @@ class PoseBase<Position3, Quaternion>;
 template
 class TwistBase<Position3, Quaternion>;
 
-namespace lietorch::ops::pose {
+template
+class PoseBase<Position2, UnitComplex>;
+template
+class TwistBase<Position2, UnitComplex>;
+
+namespace ops::pose {
 
 static const Tensor eye3 = torch::eye (3);
 
@@ -51,7 +58,8 @@ Tensor rightJacobianInv (const Tensor &q) {
 template<class Translation, class Rotation>
 Translation PoseBase<Translation, Rotation>::translation () const {
 	const int tDim = Translation::Dim;
-	return Translation (coeffs.slice(0, 0, tDim));
+	return Translation (coeffs.is_complex () ? real (coeffs.slice(0, 0, tDim)):
+						   coeffs.slice(0,0,tDim));
 }
 
 
@@ -80,11 +88,16 @@ PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::inverse () cons
 	return PoseBase(inv * (translation().inverse()), inv);
 }
 
-template<class Translation, class Rotation>
-typename PoseBase<Translation,Rotation>::Tangent PoseBase<Translation,Rotation>::log () const {
+template<>
+typename PoseBase<Position3,Quaternion>::Tangent PoseBase<Position3,Quaternion>::log () const {
 	Tensor rotationLog = rotation().log().coeffs;
 
 	return Tangent (ops::pose::expCouplingInverse (rotationLog).matmul (translation().coeffs), rotationLog);
+}
+
+template<>
+typename PoseBase<Position3, QuaternionR4>::Tangent PoseBase<Position3,QuaternionR4>::log () const {
+	return Tangent (translation().log(), rotation().log());
 }
 
 // Composition is different according to each specialization
@@ -97,6 +110,11 @@ PoseBase<Position3, QuaternionR4> PoseBase<Position3, QuaternionR4>::compose (co
 template<>
 PoseBase<Position3, Quaternion> PoseBase<Position3, Quaternion>::compose (const PoseBase &other) const {
 	return PoseBase (translation() * (rotation() * other.translation()), rotation() * other.rotation());
+}
+
+template<>
+PoseBase<Position2, UnitComplex> PoseBase<Position2, UnitComplex>::compose (const PoseBase &other) const {
+    return PoseBase (translation() * (rotation() * other.translation ()), rotation() * other.rotation ());
 }
 
 template<class Translation, class Rotation>
@@ -113,10 +131,17 @@ PoseBase<Translation, Rotation>:: PoseBase::act (const Vector &v) const {
 	return rotation() * v + translation().coeffs;
 }
 
-template<class Translation, class Rotation>
-typename PoseBase<Translation, Rotation>::Tangent
-PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
+template<>
+typename PoseBase<Position3, Quaternion>::Tangent
+PoseBase<Position3, Quaternion>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
 	return Tangent (rotation().act (translation().differentiate (outerGradient, v, op).coeffs),
+				 rotation().differentiate (outerGradient, v, op));
+}
+
+template<>
+typename PoseBase<Position3, QuaternionR4>::Tangent
+    PoseBase<Position3, QuaternionR4>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
+	return Tangent (translation().differentiate (outerGradient, v, op).coeffs,
 				 rotation().differentiate (outerGradient, v, op));
 }
 
@@ -139,10 +164,17 @@ TwistBase<Translation, Rotation>::angular () const {
 	return coeffs.slice (0, +LinearVelocity::Dim, +LinearVelocity::Dim + AngularVelocity::Dim);
 }
 
-template<class Translation, class Rotation>
-typename TwistBase<Translation, Rotation>::LieGroup
-TwistBase<Translation, Rotation>::exp () const {
+template<>
+typename TwistBase<Position3, Quaternion>::LieGroup
+TwistBase<Position3, Quaternion>::exp () const {
 	return LieGroup (ops::pose::expCoupling (angular().coeffs).matmul (linear().coeffs), angular().exp ().coeffs);
+}
+
+template<>
+typename TwistBase<Position3, QuaternionR4>::LieGroup
+    TwistBase<Position3, QuaternionR4>::exp () const
+{
+	return PoseBase<Position3, QuaternionR4> (linear().exp().coeffs, angular().exp().coeffs);
 }
 
 template<class Translation, class Rotation>
@@ -151,4 +183,6 @@ TwistBase<Translation, Rotation> TwistBase<Translation, Rotation>::scale(const T
 	assert (other.sizes().size() == 1 && other.size(0) == 2 && "Scaling tensor must be 1D and with exactly two elemenents");
 
 	return TwistBase (linear() * other[0], angular() * other[1]);
+}
+
 }

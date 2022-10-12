@@ -3,6 +3,7 @@
 
 #include "rn.h"
 #include "quaternion.h"
+#include "unit_complex.h"
 
 //#include <manif/impl/se3/SE3.h>
 
@@ -92,11 +93,12 @@ public:
 };
 
 // Actual Definitions
-//using Position2 = Rn<2>;
+using Position2 = Rn<2>;
 using Position3 = Rn<3>;
 
-//using Velocity2 = VelocityRn<2>;
+using Velocity2 = VelocityRn<2>;
 using Velocity3 = VelocityRn<3>;
+
 
 using Pose3R4 = PoseBase<Position3, QuaternionR4>;
 using Pose = PoseBase<Position3, Quaternion>;
@@ -108,6 +110,8 @@ using Velocity = Velocity3;
 using Pose3R4 = PoseBase<Position3, QuaternionR4>;
 using Pose = PoseBase<Position3, Quaternion>;
 using Twist3R4 = TwistBase<Velocity3, QuaternionR4Velocity>;
+
+using Pose2 = PoseBase<Position2, UnitComplex>;
 
 using Position = Position3;
 using Velocity = Velocity3;
@@ -130,6 +134,7 @@ template<>
 inline Quaternion pose_cast<Quaternion> (const Pose &pose) {
 	return pose.rotation ();
 }
+
 
 
 

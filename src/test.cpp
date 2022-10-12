@@ -1,5 +1,4 @@
-#include <lietorch/pose.h>
-#include <manif/SE3.h>
+#include "lietorch/pose.h"
 #include <fstream>
 
 using namespace lietorch;
@@ -85,6 +84,11 @@ int main ()
 	
 	poseManif = poseToManif (pose);
 
+	Quaternion a = Quaternion(0,0,0,1);
+	AngularVelocity vel(10 * torch::tensor ({0.1, 0., 0.}, kFloat));
+
+	COUTN (a * vel.exp());
+/*
 	Tensor lietorchJac = ops::quaternion::actionJacobian (pose.rotation ().coeffs, v);
 	COUTN(Pose (Position ({1,2,3}),Quaternion (4,5,6,7)))
 	COUTN(Pose::Identity ().log ());
@@ -95,6 +99,6 @@ int main ()
 	
 	tocsv (pose.log ().coeffs, "log");
 	
-	
+	*/
 	return 0;
 }
