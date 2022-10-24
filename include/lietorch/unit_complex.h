@@ -25,7 +25,7 @@ struct traits<ComplexVelocity>
 template<>
 struct traits<UnitComplex>
 {
-	static constexpr int Dim = 1;
+	static constexpr int Dim = 2;
 	static constexpr int ActDim = 2;
 
 	using Tangent = ComplexVelocity;
@@ -81,15 +81,10 @@ public:
 	torch::Tensor imag () const;
 
 	UnitComplex conj () const;
+
+private:
+	torch::Tensor complexCoeffs () const;
 };
-
-inline std::ostream &operator << (std::ostream &os, const UnitComplex &l) {
-	os << abi::__cxa_demangle(typeid(UnitComplex).name(), NULL,NULL,NULL) << "\n" <<
-		torch::stack ({real(l.coeffs), imag(l.coeffs)}, 1);
-
-	return os;
-}
-
 }
 
 #endif // UNIT_COMPLEX_H

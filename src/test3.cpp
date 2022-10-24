@@ -17,7 +17,7 @@ int main ()
 	Tensor point3 = torch::tensor ({5,6}, kFloat);
 	Pose2 poseTest(point2, ori);
 
-	cout << poseTest * point3 << endl;
+	cout << poseTest.inverse () * point3 << endl;
 
 
 	std::complex<double> oristd = exp(M_PI/6 * 1i);
@@ -26,5 +26,7 @@ int main ()
 	std::complex<double> pointstd = 1. + 2i;
 	std::complex<double> point2std = 3. + 4i;
 
-	cout << "std\n" << oristd * point3std + point2std << endl;
+	auto orinv = conj(oristd);
+
+	cout << "std\n" << orinv * point3std  + orinv * (- point2std) << endl;
 }

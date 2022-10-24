@@ -58,10 +58,8 @@ Tensor rightJacobianInv (const Tensor &q) {
 template<class Translation, class Rotation>
 Translation PoseBase<Translation, Rotation>::translation () const {
 	const int tDim = Translation::Dim;
-	return Translation (coeffs.is_complex () ? real (coeffs.slice(0, 0, tDim)):
-						   coeffs.slice(0,0,tDim));
+    return Translation (coeffs.slice(0,0,tDim));
 }
-
 
 template<class Translation, class Rotation>
 Rotation PoseBase<Translation, Rotation>::rotation () const {
