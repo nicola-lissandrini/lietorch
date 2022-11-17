@@ -8,8 +8,6 @@
 
 #include <cxxabi.h>
 
-#define COUTN(var) {std::cout << "\e[33m" << #var << "\e[0m" << std::endl << var << std::endl;}
-
 namespace lietorch {
 
 namespace internal {

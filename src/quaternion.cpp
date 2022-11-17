@@ -185,9 +185,9 @@ Quaternion::DataType Quaternion::dist (const Quaternion &other, const DataType &
 AngularVelocity Quaternion::differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<Tensor &> &jacobian) const
 {
 	Tensor actionJacobian = ops::quaternion::actionJacobian (coeffs, v);
-	COUTNS(outerGradient);
+
 	Tensor gradientTensor = actionJacobian.transpose (1,2).matmul (outerGradient.unsqueeze(2)).squeeze();
-	COUTNS(gradientTensor);
+	
 	if (jacobian)
 		*jacobian = gradientTensor;
 	return AngularVelocity (op (gradientTensor));
