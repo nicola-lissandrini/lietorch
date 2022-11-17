@@ -124,7 +124,7 @@ template<class Derived>
 LieGroup<Derived>::LieGroup(const LieGroup::DataType &_coeffs):
 	coeffs(_coeffs)
 {
-	//assert (coeffs.dim() == 1 && coeffs.size(0) == Dim && "Incompatible initialization QUAAAA tensor size");
+	//assert (coeffs.dim() == 1 && coeffs.size(0) == Dim && "Incompatible initialization tensor size");
 }
 
 template<class Derived>
