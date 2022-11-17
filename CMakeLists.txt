@@ -26,8 +26,6 @@ set_target_properties (
 	VERSION 0.9.1
 	SOVERSION 0.9.1 )
 
-add_executable(test src/test3.cpp)
-target_link_libraries (test ${TORCH_LIBRARIES} lietorch)
 
 # Install
 install (TARGETS lietorch
