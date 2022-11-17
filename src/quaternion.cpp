@@ -1,5 +1,4 @@
 #include "lietorch/quaternion.h"
-#include "../../sparcsnode/include/sparcsnode/utils.h"
 
 using namespace lietorch;
 using namespace torch;

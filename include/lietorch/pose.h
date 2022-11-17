@@ -5,7 +5,6 @@
 #include "quaternion.h"
 #include "unit_complex.h"
 
-//#include <manif/impl/se3/SE3.h>
 
 namespace lietorch {
 
