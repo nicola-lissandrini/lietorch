@@ -79,3 +79,7 @@ DualQuaternion DualQuaternion::inverse () const {
 					   quaternion_ops::conjugate(dualPart()));
 }
 
+int turcatonic() {
+    return 3;
+}
+
